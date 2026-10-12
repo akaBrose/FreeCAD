@@ -1,20 +1,30 @@
-# Snowboard Base Protector (air travel)
+# Snowboard Base Protector (air travel) - v2
 
-Flexible hard-scale shell + soft liner that covers the base and wraps the edges of a snowboard. Units: mm. Board modelled flat (no camber / nose kick) at 156 cm, 300 / 250 / 300 mm.
+Thin, light, **rollable** protector for the base and edges of a snowboard: flexible hard-scale shell over a soft liner, removable hard **tip and tail caps**, and **straps** to hold the board to the protector. Units: mm. Board modelled flat at 156 cm, 300 / 250 / 300 mm.
 
-**Rebuild:** `scripts/run.sh models/snowboard-base-protector/build.py` (repo root). Parameters are at the top of `build.py`; the shared geometry code is `protector_lib.py` (identical copy in `ski-base-protector/`). Preview: `render_preview.py` (freecadcmd, env `PREVIEW_NAME`, `PREVIEW_Y`).
+**Rebuild:** `scripts/run.sh models/snowboard-base-protector/build.py` (repo root). Parameters are at the top of `build.py`; geometry is in `protector_lib.py` (identical copy in `ski-base-protector/`). Preview: `render_preview.py` (env `PREVIEW_NAME`, `PREVIEW_Y`, `PREVIEW_TIPX`).
 
-Outputs: `snowboard-base-protector.FCStd` (Liner, Skin, Scales visible; Gear_Reference hidden), per-part `.step`/`.stl`, `-assembled.step`, `-preview.png`.
+Objects in `snowboard-base-protector.FCStd`: `Liner`, `Skin` (incl. strap tabs), `Scales`, `Tip_Cap_Shell`, `Tip_Cap_Liner`, `Tail_Cap_Shell`, `Tail_Cap_Liner`, `Straps` (webbing, reference only), `Gear_Reference` (the board, hidden). Per-part `.step`/`.stl`, `-assembled.step` (product parts, no straps) and `-preview.png` are exported.
 
-## How it works (layers, outside to inside)
+## Rollable body = Liner + Skin + Scales
 | Layer | Design |
 |---|---|
-| **Scales** (hard) | 704 pentagon plates, 34 x 21.4 x 2.5 mm, chamfered outer edge, in a staggered (hex-packed) pattern, tips toward the tail. Each is tilted 8 deg so the trailing end stands off the skin and the next scale nests under it: pitch 24 mm gives 10 mm overlap, 0.84 mm clearance between neighbours (checked in the build). One 4.4 mm stud per scale rivets/over-moulds into the skin. Scales slide over each other, so the shell bends with the board. |
-| **Skin** (flexible TPU/TPE) | 1.5 mm backing under the liner that also wraps up the outside of the lip wall; carries the scales. |
-| **Liner** (soft, shock absorbing) | 6 mm floor + 4 mm lip wall 12 mm high (covers steel edge and sidewall). 1 mm clearance pocket. 12 mm edge shelf: the steel edges rest on it while the P-tex base sits 1.5 mm above the recessed centre, so the base never touches anything. Transverse 3 x 3 mm relief grooves every 40 mm (sealed by the skin = air cushions, and easier bending). |
+| Scales (hard) | 727 pentagon plates 30 x 19.4 x 2.0 mm, tilted 7 deg, pitch 22 mm, staggered; neighbours nest with 0.68 mm clearance (checked by the build). One stud each into the skin. **Not** on the lip walls (soft lip only). |
+| Skin (flexible TPU) | 1.0 mm, wraps the outside of the lip, carries the scales and the strap tabs |
+| Liner (soft) | 3 mm floor, 2.5 mm lip wall 8 mm high covering the steel edge; 10 mm edge shelf with the base recessed 1 mm so the P-tex never touches; 1.5 mm floor grooves every 30 mm |
 
-## Assumptions / limits to confirm
-- Scale slits: neighbouring scales have a 0.6 mm gap; the skin and liner sit behind it. The outer scale row is not thicker and the lip wall is covered by skin only, not hard scales.
-- Flat reference; the real board's camber/kick will be followed by the flexible shell, but the pocket is not cambered.
-- No closures yet (straps, buckles, end caps, handle).
-- Too long to print as one piece: print the 704 scales in batches, and mould or segment the liner and skin.
+Total body thickness below the base plane: 9.5 mm (scale stack included). Estimated mass (assumed densities in `DENSITY`; liner as a ~20% TPU lattice): body ~1.4 kg, caps ~0.3 kg.
+
+**Rolling:** roll along the length with the scales on the OUTSIDE and the gear side inside. The scales fan open when bent that way (build checks them down to a 10 mm radius with no collision). The lip has V-notches every 25 mm (8 mm wide at the top) so it compresses; they limit the inner roll to ~25 mm radius, giving a roll of about 120 mm diameter for the 1.32 m body.
+
+## Tip and tail protectors
+Separate caps (remove them before rolling). Each is a 2.5 mm hard shell cup with a 2 mm soft lining, open at the back so the board slides in. It reaches 120 mm back from the end, with a 60 mm roof over the nose/tail and low side walls. The body stops 1 mm short of each cap.
+
+## Straps
+Slotted tabs (soft skin tabs on the body, hard tabs on the caps) at 5 body stations (x = 0, +-260, +-520) and one on each cap roof. 25 mm webbing passes through the slot on each side and over the gear (modelled as `Straps`).
+
+## Assumptions to confirm
+- Flat reference (no camber / nose kick); GEAR_T = 11 mm. Strap tabs stick out 24 mm per side (body width incl. tabs 345 mm).
+- Scale slits 0.6 mm; the shell relies on the skin and liner behind them.
+- No buckles/cams modelled, only webbing; tabs are plain slots.
+- Too long to print whole: print scales/caps in batches, mould or segment skin and liner.

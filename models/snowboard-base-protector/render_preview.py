@@ -1,5 +1,5 @@
-"""Render preview PNG (plan + sections) from the built .FCStd. Run with freecadcmd: render_preview.py <name> <section_y>.
-Uses the same env: set PREVIEW_NAME / PREVIEW_Y as env vars."""
+"""Render preview PNG (plan + sections) from the built .FCStd with freecadcmd.
+Env: PREVIEW_NAME (project name), PREVIEW_Y (y of the longitudinal sections), PREVIEW_TIPX (x of the tip-end zoom)."""
 import os
 import FreeCAD as App
 from FreeCAD import Vector
@@ -10,41 +10,43 @@ import matplotlib.pyplot as plt
 here = os.path.dirname(os.path.abspath(__file__))
 name = os.environ.get("PREVIEW_NAME", "snowboard-base-protector")
 sec_y = float(os.environ.get("PREVIEW_Y", "0"))
-sec_x = float(os.environ.get("PREVIEW_X", "0"))
+tip_x = float(os.environ.get("PREVIEW_TIPX", "700"))
 doc = App.openDocument(os.path.join(here, name + ".FCStd"))
 sh = {o.Name: o.Shape for o in doc.Objects}
-col = {"Liner": "#3b82c4", "Skin": "#e0a030", "Scales": "#222222", "Gear_Reference": "#999999"}
+COL = {"Liner": "#3b82c4", "Skin": "#e0a030", "Scales": "#222222", "Gear_Reference": "#9a9a9a",
+       "Tip_Cap_Shell": "#c0392b", "Tail_Cap_Shell": "#c0392b", "Tip_Cap_Liner": "#e67e22",
+       "Tail_Cap_Liner": "#e67e22", "Straps": "#27ae60"}
 
 
-def draw(ax, shape, normal, d, c, project, lw=0.7):
-    for w in shape.slice(normal, d):
+def draw(ax, n, normal, d, project, lw=0.8):
+    for w in sh[n].slice(normal, d):
         pts = w.discretize(Deflection=0.2)
-        ax.plot([project(p)[0] for p in pts], [project(p)[1] for p in pts], color=c, lw=lw)
+        ax.plot([project(p)[0] for p in pts], [project(p)[1] for p in pts], color=COL[n], lw=lw)
 
 
-fig, axs = plt.subplots(4, 1, figsize=(13, 15), gridspec_kw={"height_ratios": [1.1, 0.7, 0.9, 0.9]})
-# plan view from below: scales footprint (slice 11 mm below the base plane) + liner outline
+fig, axs = plt.subplots(4, 1, figsize=(13, 17), gridspec_kw={"height_ratios": [1.1, 0.8, 0.8, 1.0]})
 ax = axs[0]
-draw(ax, sh["Liner"], Vector(0, 0, 1), 0.5, col["Liner"], lambda p: (p.x, p.y), 1.2)
-draw(ax, sh["Scales"], Vector(0, 0, 1), -11.0, col["Scales"], lambda p: (p.x, p.y), 0.5)
-ax.set_aspect("equal"); ax.set_title(name + " - plan (liner pocket outline blue, scales cut at z=-11 black)")
-# longitudinal section, zoomed near the waist
+for n, z, lw in [("Liner", 0.5, 1.0), ("Skin", -3.0, 0.8), ("Scales", -8.0, 0.4), ("Tip_Cap_Shell", 0.5, 1.0),
+                 ("Tail_Cap_Shell", 0.5, 1.0), ("Tip_Cap_Liner", 0.5, 0.6), ("Tail_Cap_Liner", 0.5, 0.6),
+                 ("Straps", sh["Straps"].BoundBox.ZMax - 0.5, 1.0)]:
+    draw(ax, n, Vector(0, 0, 1), z, lambda p: (p.x, p.y), lw)
+ax.set_aspect("equal")
+ax.set_title(name + " - plan: liner blue, skin+tabs orange, scales black, caps red/orange, straps green")
 ax = axs[1]
-for n in ("Liner", "Skin", "Scales", "Gear_Reference"):
-    draw(ax, sh[n], Vector(0, 1, 0), sec_y, col[n], lambda p: (p.x, p.z), 0.9)
-ax.set_xlim(-90, 90); ax.set_aspect("equal")
-ax.set_title("longitudinal section at y=%g, x -90..90 (liner blue, skin orange, scales black, gear grey)" % sec_y)
-# full-length longitudinal section (z exaggerated x4)
+for n in COL:
+    draw(ax, n, Vector(0, 1, 0), sec_y, lambda p: (p.x, p.z), 0.9)
+ax.set_xlim(tip_x - 130, tip_x + 130); ax.set_ylim(-14, 24); ax.set_aspect("equal")
+ax.set_title("tip end, longitudinal section at y=%g: shell red, cap lining orange, body gap 1 mm at left" % sec_y)
 ax = axs[2]
-for n in ("Liner", "Skin", "Scales", "Gear_Reference"):
-    draw(ax, sh[n], Vector(0, 1, 0), sec_y, col[n], lambda p: (p.x, p.z * 4), 0.6)
-ax.set_title("full-length section at y=%g (z exaggerated x4) - flex-relief grooves visible" % sec_y)
-# cross section
+for n in COL:
+    draw(ax, n, Vector(0, 1, 0), sec_y, lambda p: (p.x, p.z), 0.9)
+ax.set_xlim(-60, 120); ax.set_ylim(-14, 20); ax.set_aspect("equal")
+ax.set_title("body at y=%g: lip V-notches, floor grooves, nested scales" % sec_y)
 ax = axs[3]
-for n in ("Liner", "Skin", "Scales", "Gear_Reference"):
-    draw(ax, sh[n], Vector(1, 0, 0), sec_x, col[n], lambda p: (p.y, p.z), 0.9)
-ax.set_aspect("equal"); ax.set_title("cross section at x=%g (looking along the length)" % sec_x)
+for n in COL:
+    draw(ax, n, Vector(1, 0, 0), 0.0, lambda p: (p.y, p.z), 0.9)
+ax.set_aspect("equal"); ax.set_title("cross section at x=0 (strap station): tabs with slots, strap over the gear")
 plt.tight_layout()
 out = os.path.join(here, name + "-preview.png")
-plt.savefig(out, dpi=90)
+plt.savefig(out, dpi=85)
 print("wrote", out)
