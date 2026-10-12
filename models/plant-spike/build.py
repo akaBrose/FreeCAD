@@ -163,6 +163,8 @@ for name, shp in parts.items():
     Part.export([objs[name]], os.path.join(here, "plant-spike-%s.step" % name.lower()))
     Mesh.Mesh(MeshPart.meshFromShape(Shape=shp, LinearDeflection=0.03, AngularDeflection=0.15)).write(
         os.path.join(here, "plant-spike-%s.stl" % name.lower()))
+Mesh.Mesh(MeshPart.meshFromShape(Shape=Part.makeCompound(list(parts.values())), LinearDeflection=0.03, AngularDeflection=0.15)).write(
+    os.path.join(here, "plant-spike.stl"))      # both pieces, laid out as printed
 asm = doc.addObject("Part::Feature", "Assembled")
 asm.Shape = body
 Part.export([asm], os.path.join(here, "plant-spike-assembled.step"))

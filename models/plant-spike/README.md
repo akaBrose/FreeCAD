@@ -24,7 +24,7 @@ The shaft is open at the origin end. The cavity stops where the taper ends, so t
 
 ## 3D printing: Bambu H2D, ABS, 0.6 mm nozzle
 
-Too long for the bed in one piece (~432 mm; H2D plate 350 x 320 x 325), so it is two pieces joined by a lap joint. Both print **upright** (open/seam end on the bed), so no supports are needed. Files: `plant-spike-shaft.stl` (38 x 38 x 150) and `plant-spike-curve.stl` (100 x 38 x 317, printed tilted back 10 deg).
+Too long for the bed in one piece (~432 mm; H2D plate 350 x 320 x 325), so it is two pieces joined by a lap joint. Both print **upright** (open/seam end on the bed), so no supports are needed. Files: `plant-spike.stl` (both pieces together, as laid out for printing), or individually `plant-spike-shaft.stl` (38 x 38 x 150) and `plant-spike-curve.stl` (100 x 38 x 317, printed tilted back 10 deg).
 
 | Feature | Design |
 |---|---|
