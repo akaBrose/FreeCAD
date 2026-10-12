@@ -1,4 +1,4 @@
-"""Plant Spike - hollow spike: straight shaft, curved tapering section, blunt tip, drain holes. Units: mm.
+"""Plant Spike - hollow spike: straight shaft, curved tapering section, blunt tip, drain holes (rounded-square). Units: mm.
 
 Path (from the original Plant Spike sketch): a straight run up +Y, then a tangent arc
 ending at (ARC_END_X, ARC_END_Y). Open end (hollow) is at the origin; tip at the far end.
@@ -16,11 +16,15 @@ ARC_END_Y = 424.95454     # arc end point (from original sketch)
 OD_SHAFT = 38.0           # outer diameter of straight shaft and of the curve where it meets the shaft
 OD_TIP = 15.0             # outer diameter at end of taper, right before the blunt dome begins
 WALL = 2.0                # wall thickness
-HOLE_D = 2.0              # drain hole diameter
-HOLE_RINGS = 12           # rings of holes along the curved section
+HOLE_SIDE = 9.0           # square hole side length at the start of the curve (full diameter)
+HOLE_CORNER_FRAC = 0.2    # corner radius as a fraction of the side length
+HOLE_RINGS = 14           # rings of holes along the curved section
 HOLES_PER_RING = 6        # holes around each ring (alternate rings are staggered)
 HOLE_T_START = 0.08       # fraction along curved section where holes begin
-HOLE_T_END = 0.85         # ... and end (keep clear of the tip)
+HOLE_T_END = 0.92         # ... and end (keep clear of the tip)
+JOINT_LEN = 15.0          # minimum lap-joint overlap length (inside the straight section)
+CUT_ANGLE_DEG = 10.0      # tilt of the cut plane; the curve piece prints tilted back by this much (limited by the 325 mm Z height)
+JOINT_CLEAR = 0.2         # radial bond gap between spigot and socket (ABS slurry / epoxy)
 HOLE_ARC_DEG = 360.0      # angular spread of holes around the circumference (360 = all round)
 
 # --- Path geometry ---
@@ -69,25 +73,105 @@ for i in range(HOLE_RINGS):
     t = HOLE_T_START + (HOLE_T_END - HOLE_T_START) * i / max(HOLE_RINGS - 1, 1)
     th = THETA * t
     r = r_at(t, r0, r1)
+    side = HOLE_SIDE * r / r0                  # shrinks in proportion to the spike diameter
     stagger = (i % 2) * 0.5
     for j in range(HOLES_PER_RING):
-        # spread around the circumference (centred on the arc's outer side)
         phi = math.radians(HOLE_ARC_DEG) * (j + stagger) / HOLES_PER_RING
-        d = nrm(th) * math.cos(phi) + Z * math.sin(phi)
-        holes.append(Part.makeCylinder(HOLE_D / 2, r + 3, pt(th), d))
+        d = nrm(th) * math.cos(phi) + Z * math.sin(phi)     # radial direction (hole axis)
+        T = tan(th)
+        B = d.cross(T)
+        # square turned 45 deg so corners point along the path (T) and around the spike (B)
+        u, w = (T - B) * (1 / math.sqrt(2)), (T + B) * (1 / math.sqrt(2))
+        box = Part.makeBox(side, side, r + 3, V(-side / 2, -side / 2, 0))
+        edges = [e for e in box.Edges if abs(e.tangentAt(e.FirstParameter).z) > 0.99]
+        box = box.makeFillet(HOLE_CORNER_FRAC * side, edges)
+        m = App.Matrix(u.x, w.x, d.x, pt(th).x,
+                       u.y, w.y, d.y, pt(th).y,
+                       u.z, w.z, d.z, pt(th).z,
+                       0, 0, 0, 1)
+        box.transformShape(m)
+        holes.append(box)
 body = body.cut(Part.makeCompound(holes))
 body = body.removeSplitter()
 
-# --- Save / export ---
+# --- Split into two printable pieces with a lap joint on a tilted cut plane ---
+# The cut plane passes through the axis at y = SPLIT_Y and is tilted CUT_ANGLE_DEG toward the curve side, so when the
+# curve piece sits with that plane on the bed, its straight end leans back and the tip lean is reduced by the same angle.
+# Shaft piece: everything below the plane plus a spigot (outer part of the wall removed) up to y = STRAIGHT_LEN.
+# Curve piece: everything above the plane, with a matching socket (inner part of the wall removed) up to y = STRAIGHT_LEN.
+ALPHA = math.radians(CUT_ANGLE_DEG)
+r_in = r0 - WALL
+half = WALL * 0.45                                   # each side of the joint keeps ~0.9 mm of wall
+SPLIT_Y = STRAIGHT_LEN - JOINT_LEN - r0 * math.tan(ALPHA)   # min engagement = JOINT_LEN on the short side
+big = 1000.0
+def ycyl(r, y0, y1): return Part.makeCylinder(r, y1 - y0, V(0, y0, 0), V(0, 1, 0))
+def halfspace(side):                                  # side=+1 above the cut plane, -1 below
+    b = Part.makeBox(big, big, big, V(-big / 2, 0 if side > 0 else -big, -big / 2))
+    b.Placement = App.Placement(V(0, SPLIT_Y, 0), App.Rotation(Z, -CUT_ANGLE_DEG))
+    return b
+above, below = halfspace(+1), halfspace(-1)
+
+ring = ycyl(r0 + 1, SPLIT_Y - 15, STRAIGHT_LEN + 1).cut(ycyl(r_in + half, SPLIT_Y - 15, STRAIGHT_LEN + 1))
+shaft_piece = body.common(ycyl(big, -1, STRAIGHT_LEN))
+shaft_piece = shaft_piece.cut(ring.common(above)).removeSplitter()
+curve_piece = body.common(above)
+socket = ycyl(r_in + half + JOINT_CLEAR, SPLIT_Y - 15, STRAIGHT_LEN)
+curve_piece = curve_piece.cut(socket).removeSplitter()
+
+# Print orientation: both stand upright with the seam/open end on the bed, no supports needed.
+def to_print(shape, tilt_deg, ox, oy):
+    s = shape.copy()
+    s.Placement = App.Placement(V(0, 0, 0), App.Rotation(V(1, 0, 0), 90) * App.Rotation(Z, tilt_deg))  # Y -> Z
+    bb = s.optimalBoundingBox(True, False)
+    s.translate(V(ox - bb.XMin, oy - bb.YMin, -bb.ZMin))
+    return s
+print_curve = to_print(curve_piece, CUT_ANGLE_DEG, 0, 0)
+cbb = print_curve.optimalBoundingBox(True, False)
+print_shaft = to_print(shaft_piece, 0, cbb.XMax + 25, 0)
+
+def show_on_open(path, names):
+    """Headless saves have no GUI data, so objects open hidden. Add GuiDocument.xml with Visibility on."""
+    import zipfile, shutil
+    vp = "".join(
+        '<ViewProvider name="%s" expanded="0"><Properties Count="1" TransientCount="0">'
+        '<Property name="Visibility" type="App::PropertyBool" status="1"><Bool value="true"/></Property>'
+        '</Properties></ViewProvider>' % n for n in names)
+    xml = ('<?xml version="1.0" encoding="utf-8"?><Document SchemaVersion="1" HasExpansion="1"><Expand />'
+           '<ViewProviderData Count="%d">%s</ViewProviderData></Document>' % (len(names), vp))
+    tmp = path + ".tmp"
+    with zipfile.ZipFile(path) as zin, zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as zout:
+        for item in zin.infolist():
+            if item.filename != "GuiDocument.xml":
+                zout.writestr(item, zin.read(item.filename))
+        zout.writestr("GuiDocument.xml", xml)
+    shutil.move(tmp, path)
+
 here = os.path.dirname(os.path.abspath(__file__))
 doc = App.newDocument("PlantSpike")
-obj = doc.addObject("Part::Feature", "PlantSpike")
-obj.Shape = body
+parts = {"Shaft": print_shaft, "Curve": print_curve}
+objs = {}
+for name, shp in parts.items():
+    o = doc.addObject("Part::Feature", name)
+    o.Shape = shp
+    objs[name] = o
 doc.recompute()
 doc.saveAs(os.path.join(here, "plant-spike.FCStd"))
-Part.export([obj], os.path.join(here, "plant-spike.step"))
-import Mesh
-Mesh.export([obj], os.path.join(here, "plant-spike.stl"))
+show_on_open(os.path.join(here, "plant-spike.FCStd"), list(parts))
 
-print("RESULT valid=%s solids=%d volume=%.1f mm3 bbox=%s holes=%d R=%.2f sweep=%.1fdeg" % (
-    body.isValid(), len(body.Solids), body.Volume, body.BoundBox, len(holes), R, math.degrees(THETA)))
+import MeshPart, Mesh
+for name, shp in parts.items():
+    Part.export([objs[name]], os.path.join(here, "plant-spike-%s.step" % name.lower()))
+    Mesh.Mesh(MeshPart.meshFromShape(Shape=shp, LinearDeflection=0.03, AngularDeflection=0.15)).write(
+        os.path.join(here, "plant-spike-%s.stl" % name.lower()))
+asm = doc.addObject("Part::Feature", "Assembled")
+asm.Shape = body
+Part.export([asm], os.path.join(here, "plant-spike-assembled.step"))
+doc.removeObject("Assembled")
+
+for name, shp in parts.items():
+    print("RESULT %s valid=%s solids=%d volume=%.0f mm3 bbox=%s" % (name, shp.isValid(), len(shp.Solids), shp.Volume, shp.BoundBox))
+_ov = shaft_piece.common(curve_piece).Volume
+print("RESULT interference=%.3f mm3  joint-gap-volume=%.0f mm3  split_y=%.1f" % (
+    _ov, body.Volume - shaft_piece.Volume - curve_piece.Volume, SPLIT_Y))
+print("RESULT tip lean %.1f deg (+%.1f taper), start lean -%.1f deg" % (math.degrees(THETA) - CUT_ANGLE_DEG, math.degrees(math.atan((r0 - r1) / (R * THETA))), CUT_ANGLE_DEG))
+print("RESULT holes=%d joint: spigot r=%.2f socket r=%.2f" % (len(holes), r_in + half, r_in + half + JOINT_CLEAR))
