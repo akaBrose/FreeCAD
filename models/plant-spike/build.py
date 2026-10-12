@@ -15,8 +15,8 @@ ARC_END_X = 120.0         # arc end point (from original sketch)
 ARC_END_Y = 424.95454     # arc end point (from original sketch)
 OD_SHAFT = 38.0           # outer diameter of straight shaft and of the curve where it meets the shaft
 OD_TIP = 15.0             # outer diameter at end of taper, right before the blunt dome begins
-TIP_HALF_ANGLE_DEG = 14.0 # half-angle of the tip cone (bigger = shorter, blunter spike)
-TIP_RADIUS = 2.5          # radius of the rounded blunt end (5 mm diameter)
+TIP_LEN = 24.0            # length of the point past the end of the taper (along the path)
+TIP_NOSE_R = 2.5          # radius of curvature of the blunt end (5 mm diameter equivalent)
 WALL = 2.0                # wall thickness
 HOLE_SIDE = 9.0           # square hole side length at the start of the curve (full diameter)
 HOLE_CORNER_FRAC = 0.2    # corner radius as a fraction of the side length
@@ -62,14 +62,21 @@ r0, r1 = OD_SHAFT / 2, OD_TIP / 2
 
 # --- Outer solid: shaft + tapered curve + domed tip ---
 shaft = Part.makeCylinder(r0, STRAIGHT_LEN, V(0, 0, 0), V(0, 1, 0))
-# Tip: a cone from the taper end (radius r1) blending tangentially into a small sphere (TIP_RADIUS) = blunt end.
-beta = math.radians(TIP_HALF_ANGLE_DEG)
-s_c = (r1 - TIP_RADIUS / math.cos(beta)) / math.tan(beta)   # sphere centre distance past the taper end
-s_t = s_c - TIP_RADIUS * math.sin(beta)                     # cone ends where it touches the sphere
-tip_cone = Part.makeCone(r1, TIP_RADIUS * math.cos(beta), s_t, pt(THETA), tan(THETA))
-tip_ball = Part.makeSphere(TIP_RADIUS, pt(THETA) + tan(THETA) * s_c)
-TIP_LEN = s_c + TIP_RADIUS
-outer = shaft.fuse([taper(r0, r1), tip_cone, tip_ball]).removeSplitter()
+# Tip: one smooth revolved profile (cubic Bezier) that starts tangent to the taper (no kink) and curves into a blunt nose.
+gamma = math.atan((r0 - r1) / (R * THETA))                 # taper half-angle at the join
+a_len = 0.5 * TIP_LEN
+v2x = TIP_LEN - a_len * math.cos(gamma)
+b_nose = math.sqrt(TIP_NOSE_R * v2x / 1.5)                 # sets the curvature radius at the nose
+# profile in (radius = X, axial = Y); axial runs along the path tangent at the taper end
+bez = Part.BezierCurve()
+bez.setPoles([V(r1, 0, 0),
+              V(r1 - a_len * math.sin(gamma), a_len * math.cos(gamma), 0),
+              V(b_nose, TIP_LEN, 0),
+              V(0, TIP_LEN, 0)])
+prof = Part.Wire([bez.toShape(), Part.makeLine(V(0, TIP_LEN, 0), V(0, 0, 0)), Part.makeLine(V(0, 0, 0), V(r1, 0, 0))])
+tip = Part.Face(prof).revolve(V(0, 0, 0), V(0, 1, 0), 360)
+tip.Placement = App.Placement(pt(THETA), App.Rotation(Z, -math.degrees(THETA)))
+outer = shaft.fuse([taper(r0, r1), tip]).removeSplitter()
 
 # --- Cavity: open at the origin end, closes at the end of the taper (tip stays solid) ---
 cav_shaft = Part.makeCylinder(r0 - WALL, STRAIGHT_LEN + 1, V(0, -1, 0), V(0, 1, 0))
@@ -188,5 +195,5 @@ _ov = shaft_piece.common(curve_piece).Volume
 print("RESULT interference=%.3f mm3  joint-gap-volume=%.0f mm3  split_y=%.1f" % (
     _ov, body.Volume - shaft_piece.Volume - curve_piece.Volume, SPLIT_Y))
 print("RESULT joint ends %.1f mm along path; tip lean %.1f deg (+%.1f taper), start lean -%.1f deg" % (TH_J * R, math.degrees(THETA) - CUT_ANGLE_DEG, math.degrees(math.atan((r0 - r1) / (R * THETA))), CUT_ANGLE_DEG))
-print("RESULT tip: cone %.1f deg half-angle, point length %.1f mm past the taper, blunt end dia %.1f mm" % (TIP_HALF_ANGLE_DEG, TIP_LEN, 2 * TIP_RADIUS))
+print("RESULT tip: smooth profile, %.1f mm past the taper, nose radius ~%.1f mm, tangent to the taper (%.2f deg)" % (TIP_LEN, TIP_NOSE_R, math.degrees(gamma)))
 print("RESULT holes=%d joint: spigot r=%.2f socket r=%.2f" % (len(holes), r_in + half, r_in + half + JOINT_CLEAR))
