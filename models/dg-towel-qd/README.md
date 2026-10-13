@@ -71,3 +71,21 @@ How it works (towel has a 1" steel grommet in the corner with a lanyard through 
 - Hold vs release: `MAG_N`, `ANGLE`.
 - Lanyard notch `NOTCH_W` vs. your cord thickness.
 - The 100 mm plate is large; shrink `MARGIN` / `W_TOP` if it crowds the bag.
+
+---
+
+# v5 - flat 45 x 65 x 3 velcro plate with a short curved horn
+
+**Rebuild:** `scripts/run.sh models/dg-towel-qd/build_v5.py` -> `dg-towel-qd-v5.FCStd` (base + reference grommet + magnets), `dg-towel-qd-v5-base.{stl,step}`. Model orientation = print orientation: flat back on the bed, +Z outward, +Y up on the bag.
+
+- **Plate**: 45 x 65 x 3, R4 corners, plain flat back for adhesive velcro (no recess: the plate is too thin for one plus the magnet pockets).
+- **Horn**: round section lofted along a circular arc. Ø23 where it meets the plate (sits inside the 25.4 grommet hole), tapering to a Ø7 blunt rounded tip over 22 mm of arc. It leaves the plate at 20 deg from the plate normal (tilted up) and curves a further 40 deg, so the tip points 60 deg from the normal = 30 deg above the bag surface, up and out. Tip is 23 mm off the bag, 40 mm up the plate. An 8 mm straight extension behind the plate front buries the foot; the back is clipped flat.
+- **Ring**: hangs around the horn base, flat on the plate face, centred 26 mm up (a Ø38 grommet spans y 7..45 on the 65 plate, 3.5 mm side margins).
+- **Magnets**: 4 x Ø6 x 2 N52 on r=15.8 around the horn, open pockets Ø6.1 x 2.2 in the plate front (0.8 mm floor), press-fit + glue, same pole out.
+- **Printing**: no supports needed; the worst underside overhang (tip region) is about 40 deg from vertical. PETG, 4+ walls.
+
+## To confirm / tune
+- Grommet OD/thickness (assumed 38 / 2.5): `MAG_R` must land on metal between r=12.7 and the OD.
+- Base fit: tilted Ø23 presents a ~24.5 mm footprint through the 25.4 hole. If it binds, drop `R_BASE`; if it rattles, raise it.
+- Horn angle/curve (`PHI0`, `SWEEP`, `L`): more sweep = more hook (harder to shake off, needs a more upward pull); longer `L` = more keeper, more protrusion.
+- Hold: `MAG_N`, or Ø8 magnets if the grommet outer rim is wide enough.
