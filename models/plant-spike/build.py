@@ -10,21 +10,23 @@ import Part
 from FreeCAD import Vector as V
 
 # --- Parameters ---
-STRAIGHT_LEN = 150.0      # straight shaft length along +Y
-ARC_END_X = 120.0         # arc end point (from original sketch)
-ARC_END_Y = 424.95454     # arc end point (from original sketch)
-OD_SHAFT = 38.0           # outer diameter of straight shaft and of the curve where it meets the shaft
-OD_TIP = 15.0             # outer diameter at end of taper, right before the blunt dome begins
-TIP_LEN = 24.0            # length of the point past the end of the taper (along the path)
-TIP_NOSE_R = 2.5          # radius of curvature of the blunt end (5 mm diameter equivalent)
+SCALE = 0.70              # overall size vs the original v1 (1.0 = 38 mm OD, 432 mm long). Wall, joint gap and
+                          # joint overlap stay fixed so the print keeps the same wall thickness
+STRAIGHT_LEN = 150.0 * SCALE      # straight shaft length along +Y
+ARC_END_X = 120.0 * SCALE         # arc end point (from original sketch)
+ARC_END_Y = 424.95454 * SCALE     # arc end point (from original sketch)
+OD_SHAFT = 38.0 * SCALE           # outer diameter of straight shaft and of the curve where it meets the shaft
+OD_TIP = 15.0 * SCALE             # outer diameter at end of taper, right before the blunt dome begins
+TIP_LEN = 24.0 * SCALE            # length of the point past the end of the taper (along the path)
+TIP_NOSE_R = 2.5 * SCALE          # radius of curvature of the blunt end (5 mm diameter equivalent)
 WALL = 2.0                # wall thickness
-HOLE_SIDE = 9.0           # square hole side length at the start of the curve (full diameter)
+HOLE_SIDE = 9.0 * SCALE           # square hole side length at the start of the curve (full diameter)
 HOLE_CORNER_FRAC = 0.2    # corner radius as a fraction of the side length
 HOLE_RINGS = 13           # rings of holes along the curved section
 HOLES_PER_RING = 6        # holes around each ring (alternate rings are staggered)
 HOLE_T_START = 0.1446     # fraction along curved section where holes begin (first row dropped to clear the joint)
 HOLE_T_END = 0.92         # ... and end (keep clear of the tip)
-JOINT_LEN = 15.0          # minimum lap-joint overlap length, measured along the path
+JOINT_LEN = 12.0          # minimum lap-joint overlap length, measured along the path
 CUT_ANGLE_DEG = 23.6      # tilt of the cut plane; the curve piece prints tilted back by this much (23.6 = half the sweep, lean balanced +/-)
 JOINT_CLEAR = 0.2         # radial bond gap between spigot and socket (ABS slurry / epoxy)
 HOLE_ARC_DEG = 360.0      # angular spread of holes around the circumference (360 = all round)
@@ -83,7 +85,7 @@ cav_shaft = Part.makeCylinder(r0 - WALL, STRAIGHT_LEN + 1, V(0, -1, 0), V(0, 1, 
 cavity = cav_shaft.fuse(taper(r0 - WALL, r1 - WALL)).removeSplitter()
 body = outer.cut(cavity)
 
-# --- Holes: radial cylinders from the axis out through the wall ---
+# --- Holes: rounded-square prisms from just inside the bore out through the wall ---
 holes = []
 for i in range(HOLE_RINGS):
     t = HOLE_T_START + (HOLE_T_END - HOLE_T_START) * i / max(HOLE_RINGS - 1, 1)
@@ -98,7 +100,8 @@ for i in range(HOLE_RINGS):
         B = d.cross(T)
         # square turned 45 deg so corners point along the path (T) and around the spike (B)
         u, w = (T - B) * (1 / math.sqrt(2)), (T + B) * (1 / math.sqrt(2))
-        box = Part.makeBox(side, side, r + 3, V(-side / 2, -side / 2, 0))
+        rho0 = max(r - WALL - 0.5, 0.3)          # start just inside the bore (cutters sharing the axis break the boolean)
+        box = Part.makeBox(side, side, r + 3 - rho0, V(-side / 2, -side / 2, rho0))
         edges = [e for e in box.Edges if abs(e.tangentAt(e.FirstParameter).z) > 0.99]
         box = box.makeFillet(HOLE_CORNER_FRAC * side, edges)
         m = App.Matrix(u.x, w.x, d.x, pt(th).x,
