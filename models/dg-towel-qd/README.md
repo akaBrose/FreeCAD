@@ -35,3 +35,20 @@ Why: v1 needed aiming into a narrow dovetail mouth and had a small, awkward hand
   - Receiver upright: pause just below z = 5.6 (void z 1.4-5.6).
   - Tongue (end face down): pause just below z = 4.6 (void z 0.4-4.6).
 - Head clears the receiver top by 1.2 mm when seated. Print PETG/nylon, 4-6 walls.
+
+---
+
+# v3 - velcro base + angled magnetic peg for a 1" steel grommet (restart; v1/v2 kept)
+
+**Rebuild:** `scripts/run.sh models/dg-towel-qd/build_v3.py` -> `dg-towel-qd-v3.FCStd` (base + reference grommet + magnets), `dg-towel-qd-v3-base.{stl,step}`. Model orientation = print orientation: back face on the bed, +Z outward, +Y up on the bag.
+
+- **Base**: 70 x 75 x 4 plate, R6 corners. Back has a 64 x 69 x 1.2 recess (3 mm rim) for a self-adhesive velcro pad; the rim also protects the pad edges from peeling.
+- **Peg**: Ø18 x 17 stem on a Ø42 seat pedestal, tilted 35 deg from the plate normal toward UP, so it points up and outward on the bag. Gravity slides the grommet down onto the seat; release = lift the grommet up and out along the peg. Plain stem (no head) so it prints without supports; a 0.8 mm bead gives a click.
+- **Magnets**: 4 x Ø5 x 3 N52 on a r = 16 circle, in open pockets (Ø5.1 x 3.2) in the seat face. Press-fit/glue, magnet recessed 0.2 mm. Same polarity facing out. Magnets touch the grommet (no plastic skin), so seal with a drop of epoxy over the face if rust is a concern.
+- Total height off the bag 32 mm at the low side of the seat.
+
+## To confirm / tune
+- Measure the grommet: model assumes 25.4 ID, 38 OD, 2.5 thick (magnet circle r=16 should sit on metal, between r=12.7 and the OD edge).
+- Hold vs. release: add/remove magnets (`MAG_N`) or change `ANGLE` (more tilt = more gravity seating).
+- Velcro recess depth (`VEL_DEPTH`) vs. your velcro pad thickness.
+- Peel: releasing out-and-up peels the velcro; if the base lifts, increase plate size or lower the magnet count.
