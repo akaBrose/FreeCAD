@@ -52,3 +52,22 @@ Why: v1 needed aiming into a narrow dovetail mouth and had a small, awkward hand
 - Hold vs. release: add/remove magnets (`MAG_N`) or change `ANGLE` (more tilt = more gravity seating).
 - Velcro recess depth (`VEL_DEPTH`) vs. your velcro pad thickness.
 - Peel: releasing out-and-up peels the velcro; if the base lifts, increase plate size or lower the magnet count.
+
+---
+
+# v4 - velcro base with a funnel-ramp catcher (swing-in / pull-out, no aiming)
+
+**Rebuild:** `scripts/run.sh models/dg-towel-qd/build_v4.py` -> `dg-towel-qd-v4.FCStd` (base + reference grommet + magnets), `dg-towel-qd-v4-base.{stl,step}`. Model orientation = print orientation: back face on the bed, +Z outward, +Y up on the bag.
+
+How it works (towel has a 1" steel grommet in the corner with a lanyard through it):
+- **Stow**: swing the grommet at the base. The mouth is 72 mm wide with 5 mm flared walls, so it lands anywhere on the ramp. The ramp (seat tilted 25 deg from the plate, facing up/out) lets the ring slide down under gravity; the magnets pull it flat; the U-shaped bottom (R22, 3 mm slack around a Ø38 grommet) centres it; a short bullet peg (Ø11 base, Ø5.6 tip, 16 long) drops into the hole as it settles so it cannot ride sideways out.
+- **Grab**: pull the lanyard up and outward. The ring lifts off the magnets, clears the peg tip, and rides up the flared walls and out. The lanyard runs out through a 12 mm notch in the bottom wall.
+- **Base**: 100 x 100 x 4 plate, R8 corners, 1.2 mm velcro recess on the back with a 4 mm rim. Catcher block is 41 mm proud of the bag at its tallest (bottom wall), ~9 mm at the top of the ramp.
+- **Magnets**: 4 x Ø6 x 3 N52 on r=15.5 in open pockets in the seat (Ø6.1 x 3.2, 0.2 recessed). Press-fit + glue, same pole out.
+
+## To confirm / tune
+- Grommet OD/thickness (assumed 38 / 2.5): `RU` should be OD/2 + ~3; magnet circle `MAG_R` must land on metal.
+- Peg: if the ring hangs on the tip during release, shorten `PEG_LEN` or lower `ANGLE`.
+- Hold vs release: `MAG_N`, `ANGLE`.
+- Lanyard notch `NOTCH_W` vs. your cord thickness.
+- The 100 mm plate is large; shrink `MARGIN` / `W_TOP` if it crowds the bag.
