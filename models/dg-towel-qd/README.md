@@ -20,3 +20,18 @@ One-handed, shear-locked, magnet-assisted slide latch for hanging a wet disc gol
 - Slide clearance (0.25/side) and whether the fit binds when wet or gritty.
 - Strap slot size for your towel loop; webbing slot for your bag's velcro strap width.
 - Material: PETG (or nylon), 4-6 walls; dovetail layers lie in-plane so side loads run along the layers.
+
+---
+
+# v2 - funnel holster + grab paddle (replaces the v1 dovetail; v1 files kept)
+
+**Rebuild:** `scripts/run.sh models/dg-towel-qd/build_v2.py` -> `dg-towel-qd-v2.FCStd`, `dg-towel-qd-v2-{receiver,tongue}.{stl,step}` (tongue STL in print orientation).
+
+Why: v1 needed aiming into a narrow dovetail mouth and had a small, awkward handle. v2 is easier to stow one-handed and releases in exactly one direction (up).
+
+- **Receiver** 44 x 28 x 40: 28.6 x 10.6 pocket (0.3 mm clearance/side), 34 deep, closed on all four sides, with a 45-degree funnel mouth (38.6 x 20.6 at the top) so the paddle drops in without aiming. Cross slot 3.5 x 25 (through X) for velcro strap / carabiner; drain slot through the front wall at floor level.
+- **Tongue**: 28 x 10 paddle (34 long, chamfered tip) + 36 x 14 x 24 grab head with finger scallops on both faces, 45-degree under-head taper (prints without supports), and a 22 x 4 strap slot near the top.
+- **Magnets**: 2 pairs of Ø8 x 4 N52 (x = +/-6), 1.0 mm total gap. Sealed voids, pause-print insert, mark polarity.
+  - Receiver upright: pause just below z = 5.6 (void z 1.4-5.6).
+  - Tongue (end face down): pause just below z = 4.6 (void z 0.4-4.6).
+- Head clears the receiver top by 1.2 mm when seated. Print PETG/nylon, 4-6 walls.
