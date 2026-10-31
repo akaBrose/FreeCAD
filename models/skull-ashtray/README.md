@@ -31,6 +31,10 @@ Ashtray shaped like a human skull seen face-on: from above you look straight int
 | `skull-ashtray.step` | Both bodies as solids (CAD exchange) |
 | `skull-ashtray.FCStd` | FreeCAD document (`Body_White`, `Inlay_Black`) |
 
+## Colour mockup
+
+Renders in `mockup/renders/`: `hero` (three-quarter view with a cigar, a cigarette and a joint in the rests), `hero-bare` (no props) and `top`. They are made with three.js in a browser: run `python3 models/skull-ashtray/mockup/serve.py`, then open `http://localhost:8765/mockup/index.html?view=hero&save=1`. The `view` options are `hero`, `top`, `low` and `side`, and `props=0` leaves the props out. With `save=1` the PNG is written to `mockup/renders/`. The page loads the exported STLs, so a rebuild shows up in the next render.
+
 ## 3D printing
 
 - **Orientation:** print as modelled, flat base down. No supports. The build checks the mesh, and no surface faces down at more than 45 deg except the base itself. The bowl only widens going up, the notches open upward, and the inlay is flat on the floor and the lower fillet.

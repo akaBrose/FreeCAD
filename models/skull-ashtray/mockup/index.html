@@ -1,0 +1,181 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Skull ashtray mockup</title>
+<style>html,body{margin:0;background:#141210;overflow:hidden}canvas{width:100vw!important;height:auto!important;display:block}</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+</head>
+<body>
+<script type="module">
+// Full-colour mockup of the skull ashtray. Model coords (mm, Z up) live in `world`, which is turned so Z is up on screen.
+// URL params: view=hero|top|low|side, w, h, save=1 (POST the PNG to serve.py), props=0 (bare ashtray)
+import * as THREE from 'three';
+import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
+
+const P = new URLSearchParams(location.search);
+const VIEW = P.get('view') || 'hero', W = +(P.get('w') || 2400), H = +(P.get('h') || 1600);
+const PROPS = P.get('props') !== '0';
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1);
+renderer.setSize(W, H, false);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.VSMShadowMap;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x15120f);
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environmentIntensity = 0.55;
+const world = new THREE.Group();
+world.rotation.x = -Math.PI / 2;           // model (x, y, z) -> screen (x, z, -y)
+scene.add(world);
+
+// ---------- procedural textures ----------
+function canvasTex(w, h, draw, repeat = 1) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(repeat, repeat);
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+  return t;
+}
+let seed = 7;
+const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+const wood = canvasTex(2048, 2048, (g, w, h) => {
+  g.fillStyle = '#4a2f1c'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 900; i++) {               // long grain lines with slow waves
+    const y0 = rnd() * h, amp = 6 + rnd() * 30, f = 0.002 + rnd() * 0.004, ph = rnd() * 6.28;
+    const l = rnd(); g.strokeStyle = l < 0.5 ? `rgba(30,16,8,${0.08 + rnd() * 0.25})` : `rgba(140,92,55,${0.05 + rnd() * 0.18})`;
+    g.lineWidth = 0.6 + rnd() * 3; g.beginPath();
+    for (let x = 0; x <= w; x += 16) { const y = y0 + amp * Math.sin(x * f + ph) + 10 * Math.sin(x * 0.0007 + y0); x ? g.lineTo(x, y) : g.moveTo(x, y); }
+    g.stroke();
+  }
+  for (let i = 0; i < 9; i++) {                 // plank seams
+    const y = (i + 0.5) * h / 9 + (rnd() - 0.5) * 20; g.fillStyle = 'rgba(12,6,3,0.55)'; g.fillRect(0, y, w, 3);
+  }
+});
+const noiseTex = (base, spots, n, a) => canvasTex(256, 256, (g, w, h) => {
+  g.fillStyle = base; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < n; i++) { g.fillStyle = spots[i % spots.length].replace('A', (a * rnd()).toFixed(2)); g.beginPath(); g.arc(rnd() * w, rnd() * h, 0.5 + rnd() * 2.2, 0, 7); g.fill(); }
+});
+const cork = noiseTex('#c98a4a', ['rgba(120,60,20,A)', 'rgba(230,180,110,A)'], 900, 0.9);
+const ashT = noiseTex('#8d8a85', ['rgba(40,38,36,A)', 'rgba(220,218,212,A)'], 1400, 0.9);
+const leaf = canvasTex(512, 256, (g, w, h) => {
+  g.fillStyle = '#5b3a20'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 160; i++) { g.strokeStyle = `rgba(${rnd() < 0.5 ? '30,16,6' : '140,95,55'},${0.15 + rnd() * 0.35})`; g.lineWidth = 0.5 + rnd() * 2;
+    const y = rnd() * h; g.beginPath(); g.moveTo(0, y); g.bezierCurveTo(w * 0.3, y + (rnd() - 0.5) * 40, w * 0.7, y + (rnd() - 0.5) * 40, w, y + (rnd() - 0.5) * 30); g.stroke(); }
+});
+
+// ---------- materials ----------
+const M = {
+  white: new THREE.MeshPhysicalMaterial({ color: 0xefebe2, roughness: 0.42, clearcoat: 0.15, clearcoatRoughness: 0.5 }),
+  black: new THREE.MeshPhysicalMaterial({ color: 0x050505, roughness: 0.55, envMapIntensity: 0.35 }),
+  table: new THREE.MeshStandardMaterial({ map: wood, roughness: 0.62 }),
+  paper: new THREE.MeshStandardMaterial({ color: 0xf6f3ec, roughness: 0.85 }),
+  joint: new THREE.MeshStandardMaterial({ color: 0xece4d2, roughness: 0.9 }),
+  crutch: new THREE.MeshStandardMaterial({ color: 0xd9c7a2, roughness: 0.9 }),
+  cork: new THREE.MeshStandardMaterial({ map: cork, roughness: 0.75 }),
+  leaf: new THREE.MeshStandardMaterial({ map: leaf, roughness: 0.8 }),
+  band: new THREE.MeshStandardMaterial({ color: 0x7c1414, roughness: 0.4, metalness: 0.1 }),
+  gold: new THREE.MeshStandardMaterial({ color: 0xc9a14a, roughness: 0.3, metalness: 0.9 }),
+  ash: new THREE.MeshStandardMaterial({ map: ashT, roughness: 1 }),
+  ember: new THREE.MeshStandardMaterial({ color: 0x2a0d05, emissive: 0xff4a10, emissiveIntensity: 6.0, roughness: 0.9 }),
+};
+
+// ---------- table ----------
+const table = new THREE.Mesh(new THREE.PlaneGeometry(900, 900), M.table);
+table.rotation.z = 0.35; table.position.set(0, 75, -0.01); table.receiveShadow = true;
+world.add(table);
+
+// ---------- props (cylinders built along +Y, then aimed along a model-space direction) ----------
+function rod(r0, r1, len, mat, seg = 48) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, len, seg, 1), mat);
+  m.castShadow = m.receiveShadow = true; return m;
+}
+// a smoking item resting in a notch: parts listed outer -> inner as [len, r0, r1, material]
+function item(notch, rCenter, parts, startOut, tiltDeg) {
+  const g = new THREE.Group();
+  let s = -startOut;
+  for (const [len, r0, r1, mat] of parts) { const m = rod(r0, r1, len, mat); m.position.y = s + len / 2; g.add(m); s += len; }
+  const n = new THREE.Vector3(notch.n[0], notch.n[1], 0).normalize();
+  const t = THREE.MathUtils.degToRad(tiltDeg);
+  const dir = new THREE.Vector3(n.x * Math.cos(t), n.y * Math.cos(t), -Math.sin(t));
+  g.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+  g.position.set(notch.p[0], notch.p[1], notch.z + rCenter);
+  world.add(g); return { g, dir, tip: new THREE.Vector3(notch.p[0], notch.p[1], notch.z + rCenter).addScaledVector(dir, s) };
+}
+const N = {   // from build.py RESTS (outline point, inward normal, notch bottom z)
+  cigar: { p: [0.0, 150.0], n: [-0.0093, -1.0], z: 27.0 },
+  cigR: { p: [40.11, 133.78], n: [-0.7639, -0.6453], z: 31.0 },
+  jointL: { p: [-49.8, 100.02], n: [0.9967, 0.0812], z: 30.0 },
+};
+function glow(at) { const l = new THREE.PointLight(0xff6a20, 900, 70, 2); l.position.copy(at); world.add(l); }
+if (PROPS) {
+  const cg = item(N.cigR, 3.9, [[22, 3.9, 3.9, M.cork], [46, 3.9, 3.9, M.paper], [1.6, 3.9, 3.8, M.ember], [9, 3.75, 3.5, M.ash]], 28, 3);
+  glow(cg.tip.clone().addScaledVector(cg.dir, -5));
+  const cz = item(N.cigar, 8.5, [[26, 8.5, 8.5, M.leaf], [2, 8.65, 8.65, M.gold], [8, 8.65, 8.65, M.band], [2, 8.65, 8.65, M.gold],
+    [22, 8.5, 8.5, M.leaf], [2, 8.5, 8.4, M.ember], [10, 8.3, 7.8, M.ash]], 44, 2);
+  glow(cz.tip.clone().addScaledVector(cz.dir, -7));
+  const tw = new THREE.Mesh(new THREE.ConeGeometry(4.6, 9, 24), M.joint); tw.castShadow = true;
+  const jt = item(N.jointL, 5.0, [[14, 3.7, 3.8, M.crutch], [44, 3.8, 5.2, M.joint]], 26, 0);
+  tw.position.y = 58 - 26 + 4.2; tw.rotation.z = 0.0; jt.g.add(tw);
+  for (let i = 0; i < 18; i++) {               // a little loose ash on the cranium floor, clear of the face
+    const a = new THREE.Mesh(new THREE.IcosahedronGeometry(0.6 + rnd() * 1.6, 1), M.ash);
+    a.scale.z = 0.25; a.position.set((rnd() - 0.5) * 30 + 14, 106 + (rnd() - 0.5) * 12, 8.15);
+    a.rotation.z = rnd() * 6; a.castShadow = a.receiveShadow = true; world.add(a);
+  }
+}
+
+// ---------- lights ----------
+scene.add(new THREE.HemisphereLight(0xfff4e6, 0x2a1a10, 0.5));
+const key = new THREE.DirectionalLight(0xfff1e0, 3.2);
+key.position.set(-180, 320, 60);                 // screen coords: upper left, a little toward the camera
+key.target.position.set(0, 10, -75);
+key.castShadow = true;
+Object.assign(key.shadow.camera, { left: -170, right: 170, top: 170, bottom: -170, near: 50, far: 900 });
+key.shadow.mapSize.set(4096, 4096); key.shadow.radius = 7; key.shadow.blurSamples = 24; key.shadow.bias = -0.0004;
+scene.add(key, key.target);
+const rim = new THREE.DirectionalLight(0xcfe0ff, 0.9); rim.position.set(220, 140, -360); scene.add(rim);
+
+// ---------- ashtray ----------
+const loader = new STLLoader();
+const load = url => new Promise((ok, err) => loader.load(url, ok, undefined, err));
+const [gw, gb] = await Promise.all([load('../skull-ashtray-white.stl'), load('../skull-ashtray-black.stl')]);
+for (const [geo, mat] of [[gw, M.white], [gb, M.black]]) {
+  const m = new THREE.Mesh(toCreasedNormals(geo, THREE.MathUtils.degToRad(35)), mat);
+  m.castShadow = m.receiveShadow = true; world.add(m);
+}
+
+// ---------- camera ----------
+const target = new THREE.Vector3(0, 14, -75);
+const cam = new THREE.PerspectiveCamera(30, W / H, 5, 3000);
+const views = {
+  hero: { az: 24, el: 48, r: 420, fov: 30 },
+  low: { az: -32, el: 14, r: 430, fov: 28 },
+  side: { az: 90, el: 22, r: 440, fov: 28 },
+  top: { az: 0, el: 89.9, r: 560, fov: 24 },
+};
+const v = views[VIEW] || views.hero;
+const az = THREE.MathUtils.degToRad(v.az), el = THREE.MathUtils.degToRad(v.el);
+cam.fov = v.fov;
+cam.position.set(target.x + v.r * Math.cos(el) * Math.sin(az), target.y + v.r * Math.sin(el), target.z + v.r * Math.cos(el) * Math.cos(az));
+if (VIEW === 'top') { cam.up.set(0, 0, -1); target.y = 0; }
+cam.lookAt(target); cam.updateProjectionMatrix();
+
+renderer.render(scene, cam);
+renderer.render(scene, cam);
+document.title = 'rendered:' + VIEW;
+if (P.get('save') === '1') {
+  const blob = await new Promise(r => renderer.domElement.toBlob(r, 'image/png'));
+  await fetch('/save?name=' + VIEW + (PROPS ? '' : '-bare'), { method: 'POST', body: blob });
+  document.title = 'saved:' + VIEW;
+}
+</script>
+</body>
+</html>
